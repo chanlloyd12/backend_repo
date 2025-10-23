@@ -231,12 +231,23 @@ function _delete(req, res, next) {
 }
 
 // helper functions
-
 function setTokenCookie(res, token) {
     // create cookie with refresh token that expires in 7 days
     const cookieOptions = {
         httpOnly: true,
-        expires: new Date(Date.now() + 7 * 24 * 60 * 60 * 1000)
+        expires: new Date(Date.now() + 7 * 24 * 60 * 60 * 1000),
+        // 🛑 CRITICAL FIXES FOR PRODUCTION/CROSS-DOMAIN 🛑
+        sameSite: 'None', 
+        secure: true       
     };
     res.cookie('refreshToken', token, cookieOptions);
 }
+
+// function setTokenCookie(res, token) {
+//     // create cookie with refresh token that expires in 7 days
+//     const cookieOptions = {
+//         httpOnly: true,
+//         expires: new Date(Date.now() + 7 * 24 * 60 * 60 * 1000)
+//     };
+//     res.cookie('refreshToken', token, cookieOptions);
+// }

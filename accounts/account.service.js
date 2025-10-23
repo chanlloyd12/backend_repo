@@ -272,9 +272,14 @@ function basicDetails(account) {
 }
 
 async function sendVerificationEmail(account, origin) {
+    // Get the frontend URL from an environment variable (set this on Render!)
+    const VERCEL_FRONTEND_URL = process.env.VERCEL_FRONTEND_URL;
+
     let message;
-    if (origin) {
-        const verifyUrl = `${origin}/account/verify-email?token=${account.verificationToken}`;
+    if (VERCEL_FRONTEND_URL || origin) {
+        // Use VERCEL_FRONTEND_URL for production links, fallback to origin for dev/testing
+        const baseURL = VERCEL_FRONTEND_URL || origin;
+        const verifyUrl = `${baseURL}/account/verify-email?token=${account.verificationToken}`;
         message = `<p>Please click the below link to verify your email address:</p>
                    <p><a href="${verifyUrl}">${verifyUrl}</a></p>`;
     } else {
@@ -290,6 +295,7 @@ async function sendVerificationEmail(account, origin) {
                ${message}`
     });
 }
+
 
 async function sendAlreadyRegisteredEmail(email, origin) {
     let message;
