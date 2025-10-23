@@ -232,13 +232,12 @@ function _delete(req, res, next) {
 
 // helper functions
 function setTokenCookie(res, token) {
-    // create cookie with refresh token that expires in 7 days
     const cookieOptions = {
         httpOnly: true,
         expires: new Date(Date.now() + 7 * 24 * 60 * 60 * 1000),
-        // 🛑 CRITICAL FIXES FOR PRODUCTION/CROSS-DOMAIN 🛑
+        // 🛑 CRITICAL FIXES FOR PRODUCTION/CROSS-DOMAIN:
         sameSite: 'None', 
-        secure: true       
+        secure: true,      
     };
     res.cookie('refreshToken', token, cookieOptions);
 }

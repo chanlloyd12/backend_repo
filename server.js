@@ -13,7 +13,7 @@ const allowedOrigins = [
     // 💻 Local Development: Angular Frontend
     'http://localhost:4200', 
     // 🚀 Production/Deployment: Your Vercel Frontend URL
-    'https://frontend-repo-omega-kohl.vercel.app/', 
+    'https://frontend-repo-theta.vercel.app',
     'http://localhost:8080' // Optional: for local API testing
 ];
 
