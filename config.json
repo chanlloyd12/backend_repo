@@ -6,14 +6,14 @@
         "password": "jumao1219as",
         "database": "node-mysql-signup-verification-api"
     },
-    "secret": "826fbcd3-d1d8-486c-b693-9747b6e6ff42",
+    "secret": "7d20878e-8332-4c94-b7f1-bb8caa96f931",
     "emailFrom": "info@node-mysql-signup-verification-api.com",
     "smtpOptions": {
         "host": "smtp.ethereal.email",
         "port": 587,
         "auth": {
-        "user": "herminia73@ethereal.email",
-        "pass": "4fRCZx6jkXrTjHNGEj"
+        "user": "jed.quitzon@ethereal.email",
+        "pass": "hA269ZSgmvpFwNqvYT"
         }
     }
 }
