@@ -9,11 +9,11 @@
     "secret": "826fbcd3-d1d8-486c-b693-9747b6e6ff42",
     "emailFrom": "info@node-mysql-signup-verification-api.com",
     "smtpOptions": {
-        "host": "smtp.sendgrid.net",
-        "port": 587,
+        "host": "sandbox.smtp.mailtrap.io",
+        "port": 2525,
         "auth": {
-        "user": "apikey",
-        "pass": ""
+        "user": "3a99447be88914",
+        "pass": "5e72c50be510f0"
         }
     }
 }
