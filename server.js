@@ -13,7 +13,7 @@ const allowedOrigins = [
     'http://localhost:4200',  
     'https://frontend-repo-theta.vercel.app',
     'https://frontend-repo-ack4uopm-chanlloyd12s-projects.vercel.app',
-    'https://frontend-repo-1dw336cb4-chanlloyd12s-projects.vercel.app'  // ✅ Add this line
+    'https://frontend-repo-1dw336cb4-chanlloyd12s-projects.vercel.app'
 ];
 
 // middleware
