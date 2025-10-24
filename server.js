@@ -7,6 +7,7 @@ const bodyParser = require('body-parser');
 const cookieParser = require('cookie-parser');
 const cors = require('cors');
 const errorHandler = require('./_middleware/error-handler');
+const vercelPattern = /\.vercel\.app$/;
 
 // List of allowed origins for CORS
 const allowedOrigins = [
