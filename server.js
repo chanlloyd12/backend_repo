@@ -17,8 +17,9 @@ app.use(cookieParser());
 // 🚀 CORS Setup for Production (Vercel) and Development (Local)
 const allowedOrigins = [
     'http://localhost:4200',
-    'https://frontend-repo-steel.vercel.app' // Updated for production deployment on Vercel (using HTTPS)
-];
+    'https://frontend-repo-steel.vercel.app',
+    'https://backend-repo-vfk8.onrender.com' 
+]
 
 app.use(cors({
     origin: (origin, callback) => {
