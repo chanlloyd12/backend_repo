@@ -239,15 +239,20 @@ function _delete(req, res, next) {
 
 // helper functions
 
+// accounts.controller.js (near the bottom)
+
 function setTokenCookie(res, token) {
     // create cookie with refresh token that expires in 7 days
     const cookieOptions = {
         httpOnly: true,
         expires: new Date(Date.now() + 7 * 24 * 60 * 60 * 1000),
-        // ✅ CRITICAL FIX for Vercel (HTTPS) to Render (HTTPS)
-        // Must be secure: true for SameSite: 'None' to work
-        secure: process.env.NODE_ENV === 'production', 
-        sameSite: process.env.NODE_ENV === 'production' ? 'None' : 'Lax', 
+        
+        // 🔑 PERMANENT FIX for Cross-Origin HTTPS
+        // Must be true since both are HTTPS (Vercel and Render).
+        secure: true, 
+        
+        // Must be 'None' to allow the cookie to be sent from the Vercel frontend to the Render backend.
+        sameSite: 'None', 
     };
     res.cookie('refreshToken', token, cookieOptions);
 }
