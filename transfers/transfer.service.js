@@ -1,50 +1,88 @@
 const db = require('../_helpers/db');
+const { Op } = require('sequelize');
 
 module.exports = {
   getAll,
   getById,
-  update,
   create,
+  update,
   delete: _delete,
-  update
 };
 
-// Get all workflows
+// 🔹 Get all transfers
 async function getAll() {
-  return db.Workflow.findAll({
+  return db.Transfer.findAll({
     include: [
-      { model: db.Employee, as: 'employee', attributes: ['employeeId', 'email', 'position'] },
-      { model: db.Transfer, as: 'transfer' }
+      { 
+        model: db.Employee, 
+        as: 'employee', 
+        attributes: ['employeeId', 'email'], // Removed 'position'
+        include: [
+          { 
+            model: db.Position, 
+            as: 'positionObj', 
+            attributes: ['name'] // Include the position name from the Position model
+          }
+        ]
+      },
     ],
     order: [['createdAt', 'DESC']]
   });
 }
 
-// Get a single workflow
+// 🔹 Get a single transfer
 async function getById(id) {
-  return db.Workflow.findByPk(id, {
-    include: [
-      { model: db.Employee, as: 'employee' },
-      { model: db.Transfer, as: 'transfer' }
-    ]
+  return db.Transfer.findByPk(id, {
+    include: [{ model: db.Employee, as: 'employee' }]
   });
 }
 
-// Create a transfer (auto creates workflow)
+// 🔹 Create a transfer (with full validation)
 async function create(params) {
   if (!params.employeeId) throw 'Employee ID required';
   if (!params.department) throw 'Target department required';
 
-  // ✅ Find the employee and their department
+  // ✅ Get employee and their current department
   const employee = await db.Employee.findByPk(params.employeeId, {
     include: [{ model: db.Department, as: 'department' }]
   });
   if (!employee) throw 'Employee not found';
 
   const fromDept = employee.department?.name || 'Unknown';
-  const toDept = params.department;
+  const toDept = params.department.trim();
 
-  // ✅ Create transfer record
+  // (1) 🚫 Prevent same-department transfers
+  if (fromDept.toLowerCase() === toDept.toLowerCase()) {
+    throw 'Error: Cannot request transfer to the same department.';
+  }
+
+  // (2) 🚫 Prevent new transfer if there’s already a Pending one
+  const pending = await db.Transfer.findOne({
+    where: {
+      employeeId: params.employeeId,
+      status: { [Op.eq]: 'Pending' }
+    }
+  });
+
+  if (pending) {
+    throw 'Error: You have a pending transfer request. Please wait until it is approved or rejected.';
+  }
+
+  // (3) 🚫 Prevent duplicate Pending request for same fromDept → toDept
+  const existingActive = await db.Transfer.findOne({
+    where: {
+      employeeId: params.employeeId,
+      fromDept,
+      toDept,
+      status: { [Op.eq]: 'Pending' }
+    }
+  });
+
+  if (existingActive) {
+    throw 'Error: You already have a pending transfer request for the same departments.';
+  }
+
+  // ✅ Create the transfer record
   const transfer = await db.Transfer.create({
     employeeId: params.employeeId,
     fromDept,
@@ -52,18 +90,23 @@ async function create(params) {
     status: 'Pending'
   });
 
-  // ✅ Create corresponding workflow record
+  // ✅ Create linked workflow record
   await db.Workflow.create({
-    type: 'Department Transfer', // 🔥 this fixes your null "type"
-    details: `Transfer from ${fromDept} to ${toDept}`,
     employeeId: params.employeeId,
     transferId: transfer.transferId,
-    status: 'Pending'
+    type: 'Department Transfer',
+    status: 'Pending',
+    details: `Transfer request from ${fromDept} to ${toDept}`,
   });
 
-  return transfer;
+
+  return {
+    message: 'Transfer request created successfully.',
+    transfer
+  };
 }
 
+// 🔹 Update transfer (e.g. approval)
 async function update(id, params) {
   const transfer = await getById(id);
   if (!transfer) throw 'Transfer not found';
@@ -74,19 +117,9 @@ async function update(id, params) {
   return transfer;
 }
 
-// Delete workflow
+// 🔹 Delete transfer
 async function _delete(id) {
-  const workflow = await getById(id);
-  if (!workflow) throw 'Workflow not found';
-  await workflow.destroy();
-}
-
-async function update(id, params) {
   const transfer = await getById(id);
   if (!transfer) throw 'Transfer not found';
-
-  Object.assign(transfer, params);
-  await transfer.save();
-
-  return transfer;
+  await transfer.destroy();
 }
