@@ -19,7 +19,6 @@ app.use(cookieParser());
 
 // 🚀 CORS Setup for Production (Vercel) and Development (Local)
 const allowedOrigins = [
-    'http://localhost:4200',
     'https://frontend-repo-steel.vercel.app',
     'https://backend-repo-2-vfk8.onrender.com' 
 ]
