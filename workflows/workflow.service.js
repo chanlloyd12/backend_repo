@@ -66,40 +66,42 @@ async function create(params) {
   return getById(workflow.id);
 }
 
-// ✅ Update workflow — handles approval/rejection actions
+// Update workflow — handles approval/rejection actions
 async function update(id, params) {
   const workflow = await db.Workflow.findByPk(id, {
     include: [{ model: db.Transfer, as: 'transfer' }],
   });
   if (!workflow) throw 'Workflow not found';
 
+  // ✅ Update workflow fields
   Object.assign(workflow, params);
   await workflow.save();
 
+  // ✅ Handle linked Request
+  if (workflow.requestId) {
+    const request = await db.Request.findByPk(workflow.requestId);
+    if (request && params.status) {
+      request.status = params.status;
+      await request.save();
+    }
+  }
+
+  // ✅ Handle linked Transfer + Department Update when approved
   if (workflow.transferId) {
     const transfer = await db.Transfer.findByPk(workflow.transferId);
-    if (!transfer) throw 'Linked transfer not found';
-
-    // Update transfer status
-    if (params.status) {
+    if (transfer && params.status) {
       transfer.status = params.status;
       await transfer.save();
-    }
 
-    // Fetch employee and department references
-    const employee = await db.Employee.findByPk(transfer.employeeId);
-    if (!employee) throw 'Employee not found for transfer';
-
-    const fromDept = await db.Department.findOne({ where: { name: transfer.fromDept } });
-    const toDept = await db.Department.findOne({ where: { name: transfer.toDept } });
-
-    // ✅ Handle department movement based on workflow status
-    if (params.status === 'Approved' && toDept) {
-      employee.departmentId = toDept.id;
-      await employee.save();
-    } else if ((params.status === 'Pending' || params.status === 'Rejected') && fromDept) {
-      employee.departmentId = fromDept.id;
-      await employee.save();
+      if (params.status === 'Approved') {
+        const employee = await db.Employee.findByPk(transfer.employeeId);
+        const newDept = await db.Department.findOne({ where: { name: transfer.toDept } });
+        if (employee && newDept) {
+          employee.departmentId = newDept.id;
+          employee.department = newDept.name; // optional, if you store string too
+          await employee.save();
+        }
+      }
     }
   }
 

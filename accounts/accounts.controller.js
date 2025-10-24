@@ -45,21 +45,12 @@ function authenticate(req, res, next) {
 function refreshToken(req, res, next) {
     const token = req.cookies.refreshToken;
     const ipAddress = req.ip;
-
-    // ✅ Handle missing cookies gracefully
-    if (!token) {
-        return res.status(401).json({ message: 'No refresh token found in cookies' });
-    }
-
     accountService.refreshToken({ token, ipAddress })
         .then(({ refreshToken, ...account }) => {
             setTokenCookie(res, refreshToken);
             res.json(account);
         })
-        .catch(err => {
-            console.error('❌ refreshToken error:', err);
-            next(err);
-        });
+        .catch(next);
 }
 
 function revokeTokenSchema(req, res, next) {
@@ -240,22 +231,12 @@ function _delete(req, res, next) {
 }
 
 // helper functions
+
 function setTokenCookie(res, token) {
+    // create cookie with refresh token that expires in 7 days
     const cookieOptions = {
         httpOnly: true,
-        expires: new Date(Date.now() + 7 * 24 * 60 * 60 * 1000),
-        // 🛑 CRITICAL FIXES FOR PRODUCTION/CROSS-DOMAIN:
-        sameSite: 'None', 
-        secure: true,      
+        expires: new Date(Date.now() + 7 * 24 * 60 * 60 * 1000)
     };
     res.cookie('refreshToken', token, cookieOptions);
 }
-
-// function setTokenCookie(res, token) {
-//     // create cookie with refresh token that expires in 7 days
-//     const cookieOptions = {
-//         httpOnly: true,
-//         expires: new Date(Date.now() + 7 * 24 * 60 * 60 * 1000)
-//     };
-//     res.cookie('refreshToken', token, cookieOptions);
-// }
