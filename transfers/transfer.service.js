@@ -16,12 +16,12 @@ async function getAll() {
       { 
         model: db.Employee, 
         as: 'employee', 
-        attributes: ['employeeId', 'email'], // Removed 'position'
+        attributes: ['employeeId', 'email'],
         include: [
           { 
             model: db.Position, 
             as: 'positionObj', 
-            attributes: ['name'] // Include the position name from the Position model
+            attributes: ['name']
           }
         ]
       },
@@ -37,8 +37,10 @@ async function getById(id) {
   });
 }
 
-// 🔹 Create a transfer (with full validation)
+// 🔹 Create a transfer (Atomic Transaction)
 async function create(params) {
+  // --- Start: Immediate Validation Checks ---
+
   if (!params.employeeId) throw 'Employee ID required';
   if (!params.department) throw 'Target department required';
 
@@ -82,28 +84,46 @@ async function create(params) {
     throw 'Error: You already have a pending transfer request for the same departments.';
   }
 
-  // ✅ Create the transfer record
-  const transfer = await db.Transfer.create({
-    employeeId: params.employeeId,
-    fromDept,
-    toDept,
-    status: 'Pending'
-  });
+  // --- End: Immediate Validation Checks ---
+  
+  // 🔑 Start Transaction: Ensures Transfer and Workflow are created together (atomicity)
+  // Assuming 'db.sequelize' is the Sequelize instance exported from '../_helpers/db'
+  const t = await db.sequelize.transaction();
+  let transfer;
 
-  // ✅ Create linked workflow record
-  await db.Workflow.create({
-    employeeId: params.employeeId,
-    transferId: transfer.transferId,
-    type: 'Department Transfer',
-    status: 'Pending',
-    details: `Transfer request from ${fromDept} to ${toDept}`,
-  });
+  try {
+    // 1. ✅ Create the transfer record (within transaction)
+    transfer = await db.Transfer.create({
+      employeeId: params.employeeId,
+      fromDept,
+      toDept,
+      status: 'Pending'
+    }, { transaction: t });
 
+    // 2. ✅ Create linked workflow record (within transaction)
+    await db.Workflow.create({
+      employeeId: params.employeeId,
+      transferId: transfer.transferId,
+      type: 'Department Transfer',
+      status: 'Pending',
+      details: `Transfer request from ${fromDept} to ${toDept}`,
+    }, { transaction: t });
 
-  return {
-    message: 'Transfer request created successfully.',
-    transfer
-  };
+    // 3. Commit the transaction: Save both records
+    await t.commit();
+
+    return {
+      message: 'Transfer request created successfully.',
+      transfer
+    };
+
+  } catch (error) {
+    // 4. Rollback the transaction: If any error occurred, neither record is saved
+    await t.rollback();
+    
+    // Re-throw the error so the API route can handle it
+    throw error;
+  }
 }
 
 // 🔹 Update transfer (e.g. approval)
