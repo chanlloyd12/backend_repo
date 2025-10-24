@@ -7,13 +7,12 @@ const bodyParser = require('body-parser');
 const cookieParser = require('cookie-parser');
 const cors = require('cors');
 const errorHandler = require('./_middleware/error-handler');
-const vercelPattern = /\.vercel\.app$/;
 
 // List of allowed origins for CORS
 const allowedOrigins = [
     'http://localhost:4200',  
     'https://frontend-repo-theta.vercel.app',
-    'https://frontend-repo-chanlloyd12s-projects.vercel.app'
+    'https://frontend-repo-1dw336cb4-chanlloyd12s-projects.vercel.app'
 ];
 
 // middleware
