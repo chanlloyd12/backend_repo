@@ -45,12 +45,21 @@ function authenticate(req, res, next) {
 function refreshToken(req, res, next) {
     const token = req.cookies.refreshToken;
     const ipAddress = req.ip;
+
+    // ✅ Handle missing cookies gracefully
+    if (!token) {
+        return res.status(401).json({ message: 'No refresh token found in cookies' });
+    }
+
     accountService.refreshToken({ token, ipAddress })
         .then(({ refreshToken, ...account }) => {
             setTokenCookie(res, refreshToken);
             res.json(account);
         })
-        .catch(next);
+        .catch(err => {
+            console.error('❌ refreshToken error:', err);
+            next(err);
+        });
 }
 
 function revokeTokenSchema(req, res, next) {
