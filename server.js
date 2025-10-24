@@ -1,6 +1,9 @@
 require('rootpath')();
 const express = require('express');
 const app = express();
+// 🔑 CRITICAL FIX for cookies on Render/Vercel: Trust the proxy headers (required for secure cookies)
+app.set('trust proxy', 1); // Set to 1 if behind one layer of proxy (like Render)
+app.use(express.json());
 const bodyParser = require('body-parser');
 const cookieParser = require('cookie-parser');
 const cors = require('cors');
