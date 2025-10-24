@@ -18,7 +18,7 @@ app.use(cookieParser());
 const allowedOrigins = [
     'http://localhost:4200',
     'https://frontend-repo-steel.vercel.app',
-    'https://backend-repo-vfk8.onrender.com' 
+    'https://backend-repo-2-vfk8.onrender.com' 
 ]
 
 app.use(cors({
