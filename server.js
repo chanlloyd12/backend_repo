@@ -10,11 +10,10 @@ const errorHandler = require('./_middleware/error-handler');
 
 // List of allowed origins for CORS
 const allowedOrigins = [
-    // 💻 Local Development: Angular Frontend
     'http://localhost:4200', 
-    // 🚀 Production/Deployment: Your Vercel Frontend URL
-    'https://frontend-repo-theta.vercel.app',
-    'http://localhost:8080' // Optional: for local API testing
+    'https://frontend-repo-sandy.vercel.app', 
+    'https://frontend-repo-theta.vercel.app', // Another domain seen in previous image
+    'https://frontend-repo-5bagh2zac-chanlloyd12s-projects.vercel.app' // The specific URL in your latest screenshot
 ];
 
 // middleware
