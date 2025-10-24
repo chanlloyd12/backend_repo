@@ -10,12 +10,9 @@ const errorHandler = require('./_middleware/error-handler');
 
 // List of allowed origins for CORS
 const allowedOrigins = [
-    'http://localhost:4200', 
-    'https://frontend-repo-sandy.vercel.app', 
-    'https://frontend-repo-theta.vercel.app', // Another domain seen in previous image
-    'https://frontend-repo-5bagh2zac-chanlloyd12s-projects.vercel.app' // The specific URL in your latest screenshot
-];
-
+    'http://localhost:4200',  
+    'https://frontend-repo-theta.vercel.app',
+]
 // middleware
 app.use(bodyParser.urlencoded({ extended: false }));
 app.use(bodyParser.json());
