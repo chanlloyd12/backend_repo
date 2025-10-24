@@ -22,24 +22,14 @@ const allowedOrigins = [
 ]
 
 app.use(cors({
-    origin: (origin, callback) => {
-        // Allow requests with no origin (like mobile apps, curl requests, or same-origin requests)
-        if (!origin) return callback(null, true); 
-        
-        // Check if the requesting origin is in the allowed list
-        if (allowedOrigins.indexOf(origin) === -1) {
-            const msg = 'The CORS policy for this site does not allow access from the specified Origin.';
-            // Only throw an error if the environment is not production and we want strict checking
-            if (process.env.NODE_ENV !== 'production') {
-                return callback(new Error(msg), false);
-            }
-            // In production, for debugging CORS issues, you might want to log this instead of erroring out.
-            console.error(msg, `Attempted origin: ${origin}`);
-            return callback(null, false);
+    origin: function (origin, callback) {
+        if (!origin || allowedOrigins.includes(origin)) {
+            callback(null, true);
+        } else {
+            callback(new Error('Not allowed by CORS'));
         }
-        return callback(null, true);
     },
-    credentials: true // allow cookies / auth headers
+    credentials: true // MUST be set to true
 }));
 
 // api routes
