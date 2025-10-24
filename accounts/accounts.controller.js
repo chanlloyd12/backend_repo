@@ -240,14 +240,14 @@ function _delete(req, res, next) {
 // helper functions
 
 function setTokenCookie(res, token) {
+    // create cookie with refresh token that expires in 7 days
     const cookieOptions = {
         httpOnly: true,
-        // Make it secure for production (HTTPS) and use SameSite=None
-        secure: true, 
-        sameSite: 'None', 
         expires: new Date(Date.now() + 7 * 24 * 60 * 60 * 1000),
-        // MaxAge can be a useful alternative to expires
-        // maxAge: 7 * 24 * 60 * 60 * 1000 
+        // ✅ CRITICAL FIX for Vercel (HTTPS) to Render (HTTPS)
+        // Must be secure: true for SameSite: 'None' to work
+        secure: process.env.NODE_ENV === 'production', 
+        sameSite: process.env.NODE_ENV === 'production' ? 'None' : 'Lax', 
     };
     res.cookie('refreshToken', token, cookieOptions);
 }
