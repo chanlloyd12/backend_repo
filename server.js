@@ -2,7 +2,9 @@ require('rootpath')();
 const express = require('express');
 const app = express();
 // 🔑 CRITICAL FIX for cookies on Render/Vercel: Trust the proxy headers (required for secure cookies)
-app.set('trust proxy', true); // Set to 1 if behind one layer of proxy (like Render)
+// Setting to 'true' to ensure Express correctly handles the HTTPS proxy chain on Render, 
+// which is required for the Secure: true cookie option to work.
+app.set('trust proxy', true); // Set to true to trust all proxy layers
 app.use(express.json());
 const bodyParser = require('body-parser');
 const cookieParser = require('cookie-parser');
@@ -15,24 +17,37 @@ const db = require('./_helpers/db');
 // middleware
 app.use(bodyParser.urlencoded({ extended: false }));
 app.use(bodyParser.json());
-app.use(cookieParser());
+
+// ⚡️ FINAL FIX: Added secret key and options to cookie-parser to ensure cookies 
+// with SameSite=None are processed correctly by the middleware.
+const cookieSecret = process.env.SECRET || 'your-secret-key';
+app.use(cookieParser(cookieSecret, {
+    decode: (val) => {
+        try {
+            return decodeURIComponent(val);
+        } catch (e) {
+            return val;
+        }
+    }
+}));
 
 // 🚀 CORS Setup for Production (Vercel) and Development (Local)
 const allowedOrigins = [
-    'http://localhost:4200',
+    'http://localhost:4200', // Allows your local Angular frontend
     'https://frontend-repo-steel.vercel.app',
     'https://backend-repo-2-vfk8.onrender.com' 
 ]
 
 app.use(cors({
     origin: function (origin, callback) {
+        // Allows requests with no origin (like mobile apps or postman) or if the origin is whitelisted
         if (!origin || allowedOrigins.includes(origin)) {
             callback(null, true);
         } else {
             callback(new Error('Not allowed by CORS'));
         }
     },
-    credentials: true // MUST be set to true
+    credentials: true // MUST be set to true for cookies to be sent
 }));
 
 // api routes
