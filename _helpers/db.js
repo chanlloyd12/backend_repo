@@ -1,6 +1,15 @@
-const config = require('../config.json');
 const mysql = require('mysql2/promise');
 const { Sequelize } = require('sequelize');
+
+// Load config.json only if environment variables are not present (e.g., for local development fallback)
+let config = {};
+if (process.env.NODE_ENV !== 'production' && !process.env.DATABASE_URL) {
+    try {
+        config = require('../config.json');
+    } catch (error) {
+        console.warn("config.json not found. Using environment variables or defaults.");
+    }
+}
 
 const db = {};
 let sequelize;
@@ -8,40 +17,59 @@ let sequelize;
 initialize();
 
 async function initialize() {
-    // 1. Prioritize using DATABASE_URL environment variable for deployment (e.g., Railway)
-    const databaseUrl = process.env.DATABASE_URL;
+    let sequelizeOptions = {};
+    let dbConfig = {};
 
-    if (databaseUrl) {
-        // Use the full connection string provided by the environment
-        sequelize = new Sequelize(databaseUrl, {
-            // Note: Railway often provisions PostgreSQL, but since your original code used 'mysql', 
-            // I've kept the dialect here. You might need to change this if your Railway database is Postgres.
-            dialect: 'mysql', 
-            logging: false, // Set to true for debugging SQL queries
+    // 1. Check for DATABASE_URL (Standard for many PaaS services like Heroku)
+    if (process.env.DATABASE_URL) {
+        // Sequelize can parse the full connection string
+        sequelize = new Sequelize(process.env.DATABASE_URL, {
+            dialect: 'mysql',
+            // Required for some hosting environments to maintain connection
+            dialectOptions: {
+                ssl: process.env.NODE_ENV === 'production' ? {
+                    require: true,
+                    rejectUnauthorized: false // Adjust this based on your provider's SSL setup
+                } : false
+            }
         });
 
-        console.log('Using DATABASE_URL from environment variables for connection.');
-        
-        // No need to create the database when using a full DATABASE_URL; it already exists.
-
     } else {
-        // 2. Fallback to local config.json for development environment
+        // 2. Fallback to individual environment variables or config.json
+        const host = process.env.DB_HOST || config.database?.host;
+        const port = process.env.DB_PORT || config.database?.port;
+        const user = process.env.DB_USER || config.database?.user;
+        const password = process.env.DB_PASSWORD || config.database?.password;
+        const database = process.env.DB_NAME || config.database?.database;
 
-        const { host, port, user, password, database } = config.database;
-        
-        // Connect to MySQL server to create database if it doesn't exist (for local setup)
+        // --- Database Creation (Only run if using individual variables/config) ---
+        // This part needs to connect using mysql2/promise before Sequelize is initialized
+        if (!host || !user || !database) {
+            throw new Error("Missing required database configuration (host, user, or database name).");
+        }
+
         const connection = await mysql.createConnection({ host, port, user, password });
         await connection.query(`CREATE DATABASE IF NOT EXISTS \`${database}\`;`);
-        
-        // Connect to the database
-        sequelize = new Sequelize(database, user, password, { dialect: 'mysql' });
+        connection.end(); // Close the temporary connection
 
-        console.log('Using local config.json for connection.');
+        // --- Sequelize Initialization ---
+        sequelize = new Sequelize(database, user, password, {
+            host: host,
+            port: port,
+            dialect: 'mysql',
+            // Add SSL options if needed for the cloud environment
+            dialectOptions: {
+                ssl: process.env.NODE_ENV === 'production' ? {
+                    // require: true, // Uncomment if required
+                    rejectUnauthorized: false 
+                } : false
+            }
+        });
     }
-    
+
     db.sequelize = sequelize;
 
-    // init models
+    // init models (Keep this section as is)
     db.Account = require('../accounts/account.model')(sequelize);
     db.RefreshToken = require('../accounts/refresh-token.model')(sequelize);
     db.Employee = require('../employees/employee.model')(sequelize);
@@ -49,9 +77,9 @@ async function initialize() {
     db.Workflow = require('../workflows/workflow.model')(sequelize);
     db.Transfer = require('../transfers/transfer.model')(sequelize);
     db.Department = require('../departments/department.model')(sequelize);
-    db.Position = require('../positions/position.model')(sequelize);
+    db.Position = require('../positions/position.model')(sequelize); 
 
-    // relationships
+    // relationships (Keep this section as is)
     db.Account.hasOne(db.Employee, { foreignKey: 'accountId', onDelete: 'CASCADE', as: 'employee' });
     db.Employee.belongsTo(db.Account, { foreignKey: 'accountId', as: 'account' });
 
@@ -67,6 +95,12 @@ async function initialize() {
     db.Department.hasMany(db.Employee, { foreignKey: 'departmentId', as: 'employees' });
     db.Employee.belongsTo(db.Department, { foreignKey: 'departmentId', as: 'department' });
 
+    db.Department.hasMany(db.Position, { foreignKey: 'departmentId', as: 'positions' });
+    db.Position.belongsTo(db.Department, { foreignKey: 'departmentId', as: 'department' });
+
+    db.Position.hasMany(db.Employee, { foreignKey: 'positionId', as: 'employees' });
+    db.Employee.belongsTo(db.Position, { foreignKey: 'positionId', as: 'position' });
+
     db.Transfer.hasOne(db.Workflow, { as: 'workflow', foreignKey: 'transferId' });
     db.Workflow.belongsTo(db.Transfer, { foreignKey: 'transferId', as: 'transfer' });
 
@@ -76,7 +110,7 @@ async function initialize() {
     db.Employee.hasMany(db.Workflow, { foreignKey: 'employeeId', as: 'workflows' });
     db.Workflow.belongsTo(db.Employee, { foreignKey: 'employeeId', as: 'employee' });
 
-    // Sync all models with the database
+    // Sync the models with the database
     await sequelize.sync({});
 }
 
