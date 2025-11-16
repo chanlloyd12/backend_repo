@@ -6,14 +6,13 @@
         "password": "jumao1219as",
         "database": "node-mysql-signup-verification-api"
     },
-    "secret": "b1bfed77-e426-49cb-8553-8c93e021a66c",
     "emailFrom": "info@node-mysql-signup-verification-api.com",
     "smtpOptions": {
-        "host": "smtp.ethereal.email",
-        "port": 587,
+        "host": "sandbox.smtp.mailtrap.io",
+        "port": 2525,
         "auth": {
-        "user": "brenda34@ethereal.email",
-        "pass": "nNKThJqXW45B97kUge"
+        "user": "a3e5dcf445a373",
+        "pass": "9161f51a17b348"
         }
     }
 }
