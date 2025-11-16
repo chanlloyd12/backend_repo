@@ -42,7 +42,7 @@ async function getById(id) {
   return transfer;
 }
 
-// 🔹 Create a transfer (Atomic Transaction) - REMAINS THE NEW, COMPLEX LOGIC
+// 🔹 Create a transfer (Atomic Transaction)
 async function create(params) {
   if (!params.employeeId) throw 'Employee ID required';
   
@@ -81,7 +81,7 @@ async function create(params) {
     toPositionName = targetPositionName;
 
   } else if (targetPositionName) {
-    // Case 2: Position Transfer Only (Implies same department)
+    // Case 2: Position Transfer Only
     if (!currentDepartment) throw 'Cannot perform a Position Transfer: Employee is not currently assigned to a department.';
 
     const targetPosition = await db.Position.findOne({
@@ -99,16 +99,15 @@ async function create(params) {
     toPositionName = targetPositionName;
 
   } else if (targetDeptName) {
-    // Case 3: Department Transfer Only (Implies same position name in new department)
+    // Case 3: Department Transfer Only
     const targetDepartment = await db.Department.findOne({ where: { name: targetDeptName } });
     if (!targetDepartment) throw `Target Department "${targetDeptName}" not found.`;
 
     if (!currentPosition) throw 'Cannot perform a Department Transfer: Employee is not currently assigned to a position.';
     
-    // Find the position with the *same name* in the target department
     const targetPosition = await db.Position.findOne({
       where: { 
-        name: fromPositionName, // Use current position name
+        name: fromPositionName,
         departmentId: targetDepartment.id 
       }
     });
@@ -121,13 +120,30 @@ async function create(params) {
     toPositionName = fromPositionName;
   }
   
-  // 3. Validation Check (Must be an actual change)
+  // 3. Validation: Must be an actual change
   const isPositionChange = currentPosition?.id !== targetPosId;
   const isDepartmentChange = currentDepartment?.id !== targetDeptId;
 
   if (!isPositionChange && !isDepartmentChange) {
     throw 'Error: Cannot request a transfer as the employee is already in the target position and department.';
   }
+
+  // 🔥🔥🔥 HEAD VALIDATION (INSERTED HERE)
+  const targetPositionObj = await db.Position.findByPk(targetPosId);
+
+  if (targetPositionObj.name === 'Head') {
+    const existingHead = await db.Employee.findOne({
+      where: {
+        positionId: targetPosId,
+        departmentId: targetDeptId
+      }
+    });
+
+    if (existingHead && existingHead.employeeId !== params.employeeId) {
+      throw `Department Head is already assigned in ${toDeptName}.`;
+    }
+  }
+  // 🔥🔥🔥 END HEAD VALIDATION
 
   // 4. Pending Request Check
   const pending = await db.Transfer.findOne({
@@ -157,12 +173,11 @@ async function create(params) {
     throw 'Error: You already have a pending transfer request for the same position/department change.';
   }
   
-  // 🔑 Start Transaction
+  // Start Transaction
   const t = await db.sequelize.transaction();
   let transfer;
 
   try {
-    // 6. Create the transfer record
     transfer = await db.Transfer.create({
       employeeId: params.employeeId,
       fromDept: fromDeptName,
@@ -174,7 +189,6 @@ async function create(params) {
       status: 'Pending'
     }, { transaction: t });
 
-    // 7. Create linked workflow record
     await db.Workflow.create({
       employeeId: params.employeeId,
       transferId: transfer.transferId,
@@ -184,7 +198,6 @@ async function create(params) {
       details: `Transfer request from ${fromPositionName} (${fromDeptName}) to ${toPositionName} (${toDeptName})`,
     }, { transaction: t });
 
-    // 8. Commit the transaction
     await t.commit();
 
     return {
@@ -193,31 +206,21 @@ async function create(params) {
     };
 
   } catch (error) {
-    // 9. Rollback
     await t.rollback();
     throw error;
   }
 }
 
-// 🔹 Update transfer (e.g. approval)
+// 🔹 Update transfer
 async function update(id, params) {
   const transfer = await getById(id);
-  // getById throws if not found
-  
   Object.assign(transfer, params);
   await transfer.save();
-
   return transfer;
 }
 
 // 🔹 Delete transfer
 async function _delete(id) {
   const transfer = await getById(id);
-  // getById throws if not found
   await transfer.destroy();
 }
-
-// NOTE: getByEmployeeId needs to be implemented if it's used by the controller
-// async function getByEmployeeId(employeeId) {
-//     return db.Transfer.findAll({ where: { employeeId }, /* includes... */ });
-// }
