@@ -18,7 +18,13 @@ function model(sequelize) {
             type: DataTypes.INTEGER, 
             field: 'departmentId' 
         },
-        position: { type: DataTypes.STRING, field: 'position' },
+        // NEW: Foreign key linking to the 'Positions' table
+        positionId: { 
+            type: DataTypes.INTEGER, 
+            allowNull: true, // Adjust to false if an employee MUST have a position
+            field: 'positionId'
+        },
+        // REMOVED: The old 'position' (string) attribute that caused the naming conflict
         hireDate: { type: DataTypes.DATE, allowNull: false, field: 'hireDate' },
         status: { 
             type: DataTypes.STRING, 

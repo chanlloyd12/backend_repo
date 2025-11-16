@@ -9,21 +9,24 @@ module.exports = {
   delete: _delete,
 };
 
+// Helper function to fetch employee data with current department and position
+async function getEmployeeTransferData(employeeId) {
+  return db.Employee.findByPk(employeeId, {
+    include: [
+      { model: db.Department, as: 'department', attributes: ['id', 'name'] },
+      { model: db.Position, as: 'position', attributes: ['id', 'name', 'departmentId'] }
+    ]
+  });
+}
+
 // 🔹 Get all transfers
 async function getAll() {
   return db.Transfer.findAll({
     include: [
-      { 
-        model: db.Employee, 
-        as: 'employee', 
+      {
+        model: db.Employee,
+        as: 'employee',
         attributes: ['employeeId', 'email'],
-        include: [
-          { 
-            model: db.Position, 
-            as: 'positionObj', 
-            attributes: ['name']
-          }
-        ]
       },
     ],
     order: [['createdAt', 'DESC']]
@@ -32,33 +35,101 @@ async function getAll() {
 
 // 🔹 Get a single transfer
 async function getById(id) {
-  return db.Transfer.findByPk(id, {
+  const transfer = await db.Transfer.findByPk(id, {
     include: [{ model: db.Employee, as: 'employee' }]
   });
+  if (!transfer) throw 'Transfer not found';
+  return transfer;
 }
 
-// 🔹 Create a transfer (Atomic Transaction)
+// 🔹 Create a transfer (Atomic Transaction) - REMAINS THE NEW, COMPLEX LOGIC
 async function create(params) {
-  // --- Start: Immediate Validation Checks ---
-
   if (!params.employeeId) throw 'Employee ID required';
-  if (!params.department) throw 'Target department required';
-
-  // ✅ Get employee and their current department
-  const employee = await db.Employee.findByPk(params.employeeId, {
-    include: [{ model: db.Department, as: 'department' }]
-  });
-  if (!employee) throw 'Employee not found';
-
-  const fromDept = employee.department?.name || 'Unknown';
-  const toDept = params.department.trim();
-
-  // (1) 🚫 Prevent same-department transfers
-  if (fromDept.toLowerCase() === toDept.toLowerCase()) {
-    throw 'Error: Cannot request transfer to the same department.';
+  
+  const targetDeptName = params.department ? params.department.trim() : null;
+  const targetPositionName = params.position ? params.position.trim() : null;
+  
+  if (!targetDeptName && !targetPositionName) {
+    throw 'Error: Either a target department name or a target position name is required for a transfer request.';
   }
 
-  // (2) 🚫 Prevent new transfer if there’s already a Pending one
+  // 1. Get employee's current data
+  const employee = await getEmployeeTransferData(params.employeeId);
+  if (!employee) throw 'Employee not found';
+
+  const currentPosition = employee.position;
+  const currentDepartment = employee.department;
+
+  const fromDeptName = currentDepartment?.name || 'Unknown Department';
+  const fromPositionName = currentPosition?.name || 'Unknown Position';
+  
+  // 2. Determine Target Position and Department IDs
+  let targetDeptId, targetPosId, toDeptName, toPositionName;
+
+  if (targetPositionName && targetDeptName) {
+    // Case 1: Department AND Position Transfer
+    const targetPosition = await db.Position.findOne({
+      where: { name: targetPositionName },
+      include: [{ model: db.Department, as: 'department', where: { name: targetDeptName } }]
+    });
+
+    if (!targetPosition) throw `Target Position "${targetPositionName}" in Department "${targetDeptName}" not found.`;
+    
+    targetPosId = targetPosition.id;
+    targetDeptId = targetPosition.departmentId;
+    toDeptName = targetDeptName;
+    toPositionName = targetPositionName;
+
+  } else if (targetPositionName) {
+    // Case 2: Position Transfer Only (Implies same department)
+    if (!currentDepartment) throw 'Cannot perform a Position Transfer: Employee is not currently assigned to a department.';
+
+    const targetPosition = await db.Position.findOne({
+      where: { 
+        name: targetPositionName, 
+        departmentId: currentDepartment.id 
+      }
+    });
+
+    if (!targetPosition) throw `Target Position "${targetPositionName}" not found in current department "${fromDeptName}".`;
+
+    targetPosId = targetPosition.id;
+    targetDeptId = currentDepartment.id;
+    toDeptName = fromDeptName;
+    toPositionName = targetPositionName;
+
+  } else if (targetDeptName) {
+    // Case 3: Department Transfer Only (Implies same position name in new department)
+    const targetDepartment = await db.Department.findOne({ where: { name: targetDeptName } });
+    if (!targetDepartment) throw `Target Department "${targetDeptName}" not found.`;
+
+    if (!currentPosition) throw 'Cannot perform a Department Transfer: Employee is not currently assigned to a position.';
+    
+    // Find the position with the *same name* in the target department
+    const targetPosition = await db.Position.findOne({
+      where: { 
+        name: fromPositionName, // Use current position name
+        departmentId: targetDepartment.id 
+      }
+    });
+
+    if (!targetPosition) throw `Position "${fromPositionName}" not found in target department "${targetDeptName}". Cannot perform Department Transfer Only.`;
+
+    targetPosId = targetPosition.id;
+    targetDeptId = targetDepartment.id;
+    toDeptName = targetDeptName;
+    toPositionName = fromPositionName;
+  }
+  
+  // 3. Validation Check (Must be an actual change)
+  const isPositionChange = currentPosition?.id !== targetPosId;
+  const isDepartmentChange = currentDepartment?.id !== targetDeptId;
+
+  if (!isPositionChange && !isDepartmentChange) {
+    throw 'Error: Cannot request a transfer as the employee is already in the target position and department.';
+  }
+
+  // 4. Pending Request Check
   const pending = await db.Transfer.findOne({
     where: {
       employeeId: params.employeeId,
@@ -69,47 +140,51 @@ async function create(params) {
   if (pending) {
     throw 'Error: You have a pending transfer request. Please wait until it is approved or rejected.';
   }
-
-  // (3) 🚫 Prevent duplicate Pending request for same fromDept → toDept
+  
+  // 5. Duplicate Check
   const existingActive = await db.Transfer.findOne({
     where: {
       employeeId: params.employeeId,
-      fromDept,
-      toDept,
+      fromDept: fromDeptName,
+      toDept: toDeptName,
+      fromPosition: fromPositionName,
+      toPosition: toPositionName,
       status: { [Op.eq]: 'Pending' }
     }
   });
 
   if (existingActive) {
-    throw 'Error: You already have a pending transfer request for the same departments.';
+    throw 'Error: You already have a pending transfer request for the same position/department change.';
   }
-
-  // --- End: Immediate Validation Checks ---
   
-  // 🔑 Start Transaction: Ensures Transfer and Workflow are created together (atomicity)
-  // Assuming 'db.sequelize' is the Sequelize instance exported from '../_helpers/db'
+  // 🔑 Start Transaction
   const t = await db.sequelize.transaction();
   let transfer;
 
   try {
-    // 1. ✅ Create the transfer record (within transaction)
+    // 6. Create the transfer record
     transfer = await db.Transfer.create({
       employeeId: params.employeeId,
-      fromDept,
-      toDept,
+      fromDept: fromDeptName,
+      toDept: toDeptName,
+      fromPosition: fromPositionName,
+      toPosition: toPositionName,
+      toDepartmentId: targetDeptId,
+      toPositionId: targetPosId,
       status: 'Pending'
     }, { transaction: t });
 
-    // 2. ✅ Create linked workflow record (within transaction)
+    // 7. Create linked workflow record
     await db.Workflow.create({
       employeeId: params.employeeId,
       transferId: transfer.transferId,
-      type: 'Department Transfer',
+      type: (isPositionChange && isDepartmentChange) ? 'Position/Department Transfer' : 
+           (isPositionChange ? 'Position Transfer' : 'Department Transfer'),
       status: 'Pending',
-      details: `Transfer request from ${fromDept} to ${toDept}`,
+      details: `Transfer request from ${fromPositionName} (${fromDeptName}) to ${toPositionName} (${toDeptName})`,
     }, { transaction: t });
 
-    // 3. Commit the transaction: Save both records
+    // 8. Commit the transaction
     await t.commit();
 
     return {
@@ -118,10 +193,8 @@ async function create(params) {
     };
 
   } catch (error) {
-    // 4. Rollback the transaction: If any error occurred, neither record is saved
+    // 9. Rollback
     await t.rollback();
-    
-    // Re-throw the error so the API route can handle it
     throw error;
   }
 }
@@ -129,8 +202,8 @@ async function create(params) {
 // 🔹 Update transfer (e.g. approval)
 async function update(id, params) {
   const transfer = await getById(id);
-  if (!transfer) throw 'Transfer not found';
-
+  // getById throws if not found
+  
   Object.assign(transfer, params);
   await transfer.save();
 
@@ -140,6 +213,11 @@ async function update(id, params) {
 // 🔹 Delete transfer
 async function _delete(id) {
   const transfer = await getById(id);
-  if (!transfer) throw 'Transfer not found';
+  // getById throws if not found
   await transfer.destroy();
 }
+
+// NOTE: getByEmployeeId needs to be implemented if it's used by the controller
+// async function getByEmployeeId(employeeId) {
+//     return db.Transfer.findAll({ where: { employeeId }, /* includes... */ });
+// }

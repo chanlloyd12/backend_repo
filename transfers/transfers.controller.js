@@ -24,9 +24,19 @@ function getById(req, res, next) {
 function createSchema(req, res, next) {
   const schema = Joi.object({
     employeeId: Joi.string().required(),
-    department: Joi.string().required(),
+    // Both department and position are optional, but the service will enforce that at least one is provided.
+    department: Joi.string().optional(),
+    position: Joi.string().optional(),
     status: Joi.string().valid('Pending').optional()
-  });
+  }).min(2); // employeeId + at least one of department or position
+
+  // Custom validation to ensure at least one target is provided
+  const { department, position } = req.body;
+  if (!department && !position) {
+    next('Validation Error: Must provide either a target "department" or "position" for a transfer.');
+    return;
+  }
+  
   validateRequest(req, next, schema);
 }
 
@@ -37,6 +47,7 @@ function create(req, res, next) {
 }
 
 function getByEmployeeId(req, res, next) {
+  // Assuming a getByEmployeeId function exists in transfer.service
   transferService.getByEmployeeId(req.params.employeeId)
     .then(transfers => res.json(transfers))
     .catch(next);

@@ -101,6 +101,7 @@ app.listen(port, () => console.log('🚀 Server listening on port ' + port));
 // app.use('/workflows', require('./workflows/workflows.controller'));
 // app.use('/transfers', require('./transfers/transfers.controller'));
 // app.use('/departments', require('./departments/departments.controller'));
+// app.use('/positions', require('./positions/positions.controller'));
 
 // // swagger docs route
 // app.use('/api-docs', require('./_helpers/swagger'));
