@@ -9,11 +9,11 @@
     "secret": "b1bfed77-e426-49cb-8553-8c93e021a66c",
     "emailFrom": "info@node-mysql-signup-verification-api.com",
     "smtpOptions": {
-        "host": "smtp.ethereal.email",
+        "host": "sandbox.smtp.mailtrap.io",
         "port": 587,
         "auth": {
-        "user": "brenda34@ethereal.email",
-        "pass": "nNKThJqXW45B97kUge"
+        "user": "d3a56cd9c2b2a7",
+        "pass": "aefaf26114d8fe"
         }
     }
 }
