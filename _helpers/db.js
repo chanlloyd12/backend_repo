@@ -49,6 +49,7 @@ async function initialize() {
     db.Workflow = require('../workflows/workflow.model')(sequelize);
     db.Transfer = require('../transfers/transfer.model')(sequelize);
     db.Department = require('../departments/department.model')(sequelize);
+    db.Position = require('../positions/position.model')(sequelize);
 
     // relationships
     db.Account.hasOne(db.Employee, { foreignKey: 'accountId', onDelete: 'CASCADE', as: 'employee' });
@@ -63,8 +64,18 @@ async function initialize() {
     db.Employee.hasMany(db.Transfer, { foreignKey: 'employeeId', as: 'transfers' });
     db.Transfer.belongsTo(db.Employee, { foreignKey: 'employeeId', as: 'employee' });
 
+    // Department <-> Employee (Kept for existing Department service compatibility)
     db.Department.hasMany(db.Employee, { foreignKey: 'departmentId', as: 'employees' });
     db.Employee.belongsTo(db.Department, { foreignKey: 'departmentId', as: 'department' });
+
+    // Position <-> Department (1:N)
+    db.Department.hasMany(db.Position, { foreignKey: 'departmentId', as: 'positions' });
+    db.Position.belongsTo(db.Department, { foreignKey: 'departmentId', as: 'department' });
+
+    // Position <-> Employee (1:N) - Required for position employee count logic
+    // Note: This assumes the Employee model has a 'positionId' foreign key.
+    db.Position.hasMany(db.Employee, { foreignKey: 'positionId', as: 'employees' });
+    db.Employee.belongsTo(db.Position, { foreignKey: 'positionId', as: 'position' });
 
     db.Transfer.hasOne(db.Workflow, { as: 'workflow', foreignKey: 'transferId' });
     db.Workflow.belongsTo(db.Transfer, { foreignKey: 'transferId', as: 'transfer' });
