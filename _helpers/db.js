@@ -43,7 +43,6 @@ async function initialize() {
         const database = process.env.DB_NAME || config.database?.database;
 
         // --- Database Creation (Only run if using individual variables/config) ---
-        // This part needs to connect using mysql2/promise before Sequelize is initialized
         if (!host || !user || !database) {
             throw new Error("Missing required database configuration (host, user, or database name).");
         }
@@ -109,9 +108,29 @@ async function initialize() {
 
     db.Employee.hasMany(db.Workflow, { foreignKey: 'employeeId', as: 'workflows' });
     db.Workflow.belongsTo(db.Employee, { foreignKey: 'employeeId', as: 'employee' });
+    
+    // --- START MODIFICATION HERE ---
+    
+    // ⚠️ WARNING: If Employee has data that other tables reference (e.g., Request, Transfer, Workflow),
+    // dropping Employee will cause cascade deletion or foreign key constraint errors
+    // unless you drop the dependent tables first, or use a cascade option.
+    // For a clean restart, it's often safer to drop dependent tables first.
+    
+    // 1. Temporarily drop the dependent tables first to avoid foreign key issues
+    // This is optional but ensures a clean drop.
+    // await db.Workflow.drop();
+    // await db.Request.drop();
+    // await db.Transfer.drop();
 
-    // Sync the models with the database
+    // 2. Drop and recreate the Employee table
+    // Using { force: true } will execute DROP TABLE IF EXISTS `employees`; then CREATE TABLE
+    await db.Employee.sync({ force: true });
+    
+    // 3. Sync all remaining models (including Employee, which was just recreated)
+    // This ensures all relationships are properly set up again.
     await sequelize.sync({});
+    
+    // --- END MODIFICATION HERE ---
 }
 
 module.exports = db;
