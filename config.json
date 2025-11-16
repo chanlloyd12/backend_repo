@@ -6,6 +6,7 @@
         "password": "jumao1219as",
         "database": "node-mysql-signup-verification-api"
     },
+    "secret": "b1bfed77-e426-49cb-8553-8c93e021a66c",
     "emailFrom": "info@node-mysql-signup-verification-api.com",
     "smtpOptions": {
         "host": "sandbox.smtp.mailtrap.io",
