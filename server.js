@@ -33,7 +33,7 @@ app.use(cookieParser(cookieSecret, {
 
 // 🚀 CORS Setup for Production (Vercel) and Development (Local)
 const allowedOrigins = [
-    'http://localhost:4200', // Allows your local Angular frontend
+    // 'http://localhost:4200', // Allows your local Angular frontend
     'https://frontend-repo-steel.vercel.app',
     'https://backend-repo-2-vfk8.onrender.com' 
 ]
